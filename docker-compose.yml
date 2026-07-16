@@ -71,6 +71,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: "1"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      HOSTNAME: app1
       TZ: Europe/Istanbul
 
   app2:
@@ -88,6 +89,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: "1"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      HOSTNAME: app2
       TZ: Europe/Istanbul
 
   app3:
@@ -105,6 +107,7 @@ services:
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: "1"
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      HOSTNAME: app3
       TZ: Europe/Istanbul
 
   producer-app:

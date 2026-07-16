@@ -1,10 +1,10 @@
 package com.yigit.consumer;
 
-
 import com.yigit.dto.OrderMessage;
 import com.yigit.entity.FailedMessage;
 import com.yigit.exception.InvalidMessageException;
 import com.yigit.repository.FailedMessageRepository;
+import com.yigit.service.MonitoringEventPublisher;
 import com.yigit.service.OrderMessageService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,8 +21,8 @@ import java.time.LocalDateTime;
 @Slf4j
 public class OrderMessageConsumer {
     private final OrderMessageService service;
-
     private final FailedMessageRepository failedMessageRepository;
+    private final MonitoringEventPublisher monitoringPublisher;
 
     @RetryableTopic(
             attempts = "4",
@@ -30,13 +30,27 @@ public class OrderMessageConsumer {
             exclude = InvalidMessageException.class
     )
     @KafkaListener(topics = "orders", groupId = "my-consumer-group")
-    public void consume(OrderMessage message){
+    public void consume(OrderMessage message) {
         log.info("Message received: {}", message);
-        service.processMessage(message);
+        try {
+            service.processMessage(message);
+            monitoringPublisher.publishEvent(
+                    message.orderId(),
+                    formatPayload(message),
+                    "SUCCESS"
+            );
+        } catch (Exception ex) {
+            monitoringPublisher.publishEvent(
+                    message.orderId(),
+                    formatPayload(message),
+                    "RETRY"
+            );
+            throw ex; // re-throw so @RetryableTopic handles it
+        }
     }
 
     @DltHandler
-    public void handleDlt(OrderMessage message){
+    public void handleDlt(OrderMessage message) {
         log.error("Message processing failed after all retries; sent to DLT: {}", message);
 
         FailedMessage failed = FailedMessage.builder()
@@ -48,5 +62,18 @@ public class OrderMessageConsumer {
                 .build();
 
         failedMessageRepository.save(failed);
+
+        monitoringPublisher.publishEvent(
+                message.orderId(),
+                formatPayload(message),
+                "FAILED"
+        );
+    }
+
+    private String formatPayload(OrderMessage message) {
+        return String.format(
+                "{\"orderId\":\"%s\",\"customerName\":\"%s\",\"amount\":%.2f}",
+                message.orderId(), message.customerName(), message.amount()
+        );
     }
 }

@@ -35,3 +35,8 @@ build/
 ### OS / System ###
 .DS_Store
 Thumbs.db
+
+### Frontend ###
+monitoring-dashboard/node_modules/
+monitoring-dashboard/dist/
+monitoring-dashboard/.env.local

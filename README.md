@@ -31,12 +31,18 @@ graph TD
     
     KAFKA -.->|Failed Msgs| DLQ((DLQ - 'orders-dlt' Topic))
     DLQ -.-> APP1
+
+    APP1 == "WebSocket (STOMP)" ==> DASHBOARD[React Dashboard :5173]
+    APP2 == "WebSocket (STOMP)" ==> DASHBOARD
+    APP3 == "WebSocket (STOMP)" ==> DASHBOARD
+    style DASHBOARD fill:#111,stroke:#fff,color:#fff
 ```
 
 ## ✨ Key Features
 
 - **Microservices Separation:** Clear boundary between producing events (`kafka-producer-app`) and consuming/processing events (`kafka-message`).
 - **Horizontal Scalability:** The consumer is deployed as **3 separate independent containers** processing data concurrently from 3 Kafka partitions, maximizing throughput.
+- **Real-Time Monitoring Dashboard:** A React/TypeScript minimalist dashboard connects via WebSockets (SockJS/STOMP) directly to all consumer instances, rendering live processing metrics, throughput, and DLT logs. optimized with `requestAnimationFrame` for 10K+ messages.
 - **Stress Testing Built-in:** The producer application includes a dedicated endpoint to fire 10,000+ messages in milliseconds to test cluster performance.
 - **Dead Letter Queue (DLQ) & Retry Mechanism:** Automatic backoff and retries for failed messages. Unrecoverable messages are elegantly routed to the DLQ and persisted in a `failed_messages` table.
 - **Integration Testing:** Comprehensive end-to-end testing of the distributed structure using **Testcontainers** (spinning up ephemeral Kafka & PostgreSQL containers).
@@ -46,6 +52,7 @@ graph TD
 
 - `kafka-producer-app/` - The Producer Microservice (API Gateway). Validates incoming requests and publishes them to Kafka.
 - `kafka-message/` - The Consumer Microservice (Worker). Listens to Kafka partitions, processes data, and persists it to PostgreSQL.
+- `monitoring-dashboard/` - React + TypeScript Frontend application using Tailwind CSS v4 to visualize live Kafka message processing.
 - `docker-compose.yml` - Root orchestration file to spin up the entire infrastructure (Kafka, Postgres, UI, Producer, 3x Consumers).
 
 ## 🚀 Getting Started
@@ -72,6 +79,7 @@ Once the containers are running, you can access the following services:
 
 | Service | URL | Description |
 |---------|-----|-------------|
+| **Monitoring Dashboard** | [http://localhost:5173](http://localhost:5173) | Live React dashboard showing message processing, active connections, and Dead Letter Queue |
 | **Producer Swagger UI** | [http://localhost:8085/swagger-ui.html](http://localhost:8085/swagger-ui.html) | **(Start Here)** Send Stress Test REST requests to the cluster |
 | **Kafka UI** | [http://localhost:8090](http://localhost:8090) | Monitor Kafka topics, partitions, and consumers |
 | **PostgreSQL** | `localhost:5433` | DB Access (User: `postgres`, Pass: `1`) |
@@ -82,8 +90,21 @@ Once the containers are running, you can access the following services:
 
 1. Open the **Producer Swagger UI**: `http://localhost:8085/swagger-ui.html`
 2. Navigate to `POST /api/orders/stress-test`
-3. Enter a count (e.g., `5000`) and hit Execute.
-4. Open your DB client (DBeaver) or Docker Logs to watch the 3 Consumer instances process the massive load in parallel!
+3. Enter a count (e.g., `10000`) and hit Execute.
+4. Open the **Monitoring Dashboard** (`http://localhost:5173`) and watch the 3 Consumer instances process the massive load in parallel!
+
+## 📊 Live Monitoring Dashboard
+
+To visualize the message throughput during a stress test, a specialized React dashboard is provided. It connects directly to the backend instances via WebSockets.
+
+![Monitoring Dashboard](dashboard.png)
+
+### How to Run the Dashboard:
+```bash
+cd monitoring-dashboard
+npm install
+npm run dev
+```
 
 ---
 *Developed as an internship project to demonstrate advanced distributed system patterns.*
