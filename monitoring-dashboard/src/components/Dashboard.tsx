@@ -1,6 +1,7 @@
 import { useMonitoringSocket } from '../hooks/useMonitoringSocket';
 import { InstanceCard } from './InstanceCard';
 import { FailedMessagesPanel } from './FailedMessagesPanel';
+import { EnrichedDataPanel } from './EnrichedDataPanel';
 import { StatsBar } from './StatsBar';
 import type { ConnectionStatus } from '../types/monitoring';
 
@@ -80,6 +81,14 @@ export function Dashboard() {
               );
             })}
           </div>
+        </section>
+
+        {/* Enriched Data Panel */}
+        <section className="mb-8">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xs font-semibold text-emerald-500/80 uppercase tracking-wider">Enriched Orders Correlation</h2>
+          </div>
+          <EnrichedDataPanel instances={instances} />
         </section>
 
         {/* Failed Messages Panel */}

@@ -7,14 +7,32 @@ on:
     branches: [ main ]
 
 jobs:
-  test:
+  test-kafka-message:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kafka-message
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
+      - name: Run tests
+        run: mvn test
+
+  test-kafka-producer-app:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kafka-producer-app
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
       - name: Run tests
         run: mvn test

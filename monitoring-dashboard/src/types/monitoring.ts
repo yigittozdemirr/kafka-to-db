@@ -1,3 +1,11 @@
+export interface ParsedPayload {
+  orderId: string;
+  customerName: string;
+  amount: number;
+  address?: string;
+  email?: string;
+}
+
 export interface MonitoringEvent {
   messageId: string;
   payload: string;

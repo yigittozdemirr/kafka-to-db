@@ -1,6 +1,7 @@
 package com.yigit.consumer;
 
 import com.yigit.dto.OrderMessage;
+import com.yigit.entity.EnrichedOrder;
 import com.yigit.entity.FailedMessage;
 import com.yigit.exception.InvalidMessageException;
 import com.yigit.repository.FailedMessageRepository;
@@ -33,12 +34,14 @@ public class OrderMessageConsumer {
     public void consume(OrderMessage message) {
         log.info("Message received: {}", message);
         try {
-            service.processMessage(message);
-            monitoringPublisher.publishEvent(
-                    message.orderId(),
-                    formatPayload(message),
-                    "SUCCESS"
-            );
+            EnrichedOrder enrichedOrder = service.processMessage(message);
+            if (enrichedOrder != null) {
+                monitoringPublisher.publishEvent(
+                        message.orderId(),
+                        formatEnrichedPayload(enrichedOrder),
+                        "SUCCESS"
+                );
+            }
         } catch (Exception ex) {
             monitoringPublisher.publishEvent(
                     message.orderId(),
@@ -72,8 +75,15 @@ public class OrderMessageConsumer {
 
     private String formatPayload(OrderMessage message) {
         return String.format(
-                "{\"orderId\":\"%s\",\"customerName\":\"%s\",\"amount\":%.2f}",
+                "{\"orderId\":\"%s\",\"customerName\":\"%s\",\"amount\":%.2f,\"address\":\"Unknown Address\",\"email\":\"Unknown Email\"}",
                 message.orderId(), message.customerName(), message.amount()
+        );
+    }
+
+    private String formatEnrichedPayload(EnrichedOrder enrichedOrder) {
+        return String.format(
+                "{\"orderId\":\"%s\",\"customerName\":\"%s\",\"amount\":%.2f,\"address\":\"%s\",\"email\":\"%s\"}",
+                enrichedOrder.getOrderId(), enrichedOrder.getCustomerName(), enrichedOrder.getAmount(), enrichedOrder.getAddress(), enrichedOrder.getEmail()
         );
     }
 }

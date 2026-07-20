@@ -28,7 +28,7 @@ class OrderMessageServiceTest {
     @BeforeEach
     void setUp(){
         validator = Validation.buildDefaultValidatorFactory().getValidator();
-        service = new OrderMessageService(repository, validator);
+        service = new OrderMessageService(repository, null, null, null);
     }
 
     @Test
