@@ -4,7 +4,7 @@ import SockJS from 'sockjs-client';
 import type { MonitoringEvent, InstanceData, ConnectionStatus } from '../types/monitoring';
 
 const CONSUMER_PORTS = [8080, 8081, 8082];
-const MAX_MESSAGES_PER_INSTANCE = 100;
+const MAX_MESSAGES_PER_INSTANCE = 1000;
 const MAX_FAILED_MESSAGES = 200;
 const TOPIC = '/topic/monitoring';
 

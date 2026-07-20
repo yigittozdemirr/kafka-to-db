@@ -82,8 +82,8 @@ public class OrderMessageConsumer {
 
     private String formatEnrichedPayload(EnrichedOrder enrichedOrder) {
         return String.format(
-                "{\"orderId\":\"%s\",\"customerName\":\"%s\",\"amount\":%.2f,\"address\":\"%s\",\"email\":\"%s\"}",
-                enrichedOrder.getOrderId(), enrichedOrder.getCustomerName(), enrichedOrder.getAmount(), enrichedOrder.getAddress(), enrichedOrder.getEmail()
+                "{\"orderId\":\"%s\",\"customerName\":\"%s\",\"amount\":%.2f,\"address\":\"%s\",\"email\":\"%s\",\"customerIndex\":%d}",
+                enrichedOrder.getOrderId(), enrichedOrder.getCustomerName(), enrichedOrder.getAmount(), enrichedOrder.getAddress(), enrichedOrder.getEmail(), enrichedOrder.getCustomerIndex()
         );
     }
 }

@@ -4,6 +4,7 @@ export interface ParsedPayload {
   amount: number;
   address?: string;
   email?: string;
+  customerIndex?: number;
 }
 
 export interface MonitoringEvent {

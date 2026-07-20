@@ -18,6 +18,11 @@ public class EnrichedOrder {
     private String orderId;
     private String customerName;
     private Double amount;
+
+    // Sortable index extracted from customerName (e.g. "Customer-42" → 42)
+    @Column(name = "customer_index")
+    @Builder.Default
+    private Integer customerIndex = 0;
     
     // Enriched fields
     private String address;

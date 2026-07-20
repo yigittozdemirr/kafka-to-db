@@ -69,6 +69,7 @@ public class OrderMessageService {
                 .orderId(message.orderId())
                 .customerName(message.customerName())
                 .amount(message.amount())
+                .customerIndex(extractCustomerIndex(message.customerName()))
                 .address(address)
                 .email(email)
                 .receivedAt(now)
@@ -77,5 +78,22 @@ public class OrderMessageService {
         enrichedOrderRepository.save(enrichedOrder);
         log.info("Saved enriched data to DataBase! orderId = {}", enrichedOrder.getOrderId());
         return enrichedOrder;
+    }
+
+    /**
+     * Extracts the numeric suffix from customerName.
+     * E.g. "Customer-42" → 42, "Ahmet" → Integer.MAX_VALUE (sorted last).
+     */
+    private int extractCustomerIndex(String customerName) {
+        if (customerName == null) return Integer.MAX_VALUE;
+        int dashIndex = customerName.lastIndexOf('-');
+        if (dashIndex >= 0 && dashIndex < customerName.length() - 1) {
+            try {
+                return Integer.parseInt(customerName.substring(dashIndex + 1));
+            } catch (NumberFormatException e) {
+                return Integer.MAX_VALUE;
+            }
+        }
+        return Integer.MAX_VALUE;
     }
 }

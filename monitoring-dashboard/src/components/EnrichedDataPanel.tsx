@@ -5,12 +5,23 @@ interface EnrichedDataPanelProps {
   instances: Record<string, InstanceData>;
 }
 
+/**
+ * Extracts the numeric suffix from a customerName string.
+ * E.g. "Customer-42" → 42, "Ahmet" → Infinity (sorted last).
+ */
+function extractCustomerIndex(customerName: string | undefined): number {
+  if (!customerName) return Infinity;
+  const dashIndex = customerName.lastIndexOf('-');
+  if (dashIndex >= 0 && dashIndex < customerName.length - 1) {
+    const num = parseInt(customerName.substring(dashIndex + 1), 10);
+    return isNaN(num) ? Infinity : num;
+  }
+  return Infinity;
+}
+
 export function EnrichedDataPanel({ instances }: EnrichedDataPanelProps) {
   const enrichedMessages = useMemo(() => {
     const allMessages = Object.values(instances).flatMap((inst) => inst.messages);
-    
-    // Sort by timestamp descending
-    allMessages.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
     // Parse and filter only successfully enriched messages
     const parsedList: (ParsedPayload & { status: string; timestamp: string })[] = [];
@@ -21,8 +32,10 @@ export function EnrichedDataPanel({ instances }: EnrichedDataPanelProps) {
           const parsed = JSON.parse(msg.payload) as ParsedPayload;
           // We consider it enriched if it has an address and email that aren't the fallback
           if (
-              parsed.address && parsed.address !== 'Unknown Address' &&
-              parsed.email && parsed.email !== 'Unknown Email'
+              parsed.address &&
+              parsed.address !== 'Unknown Address' &&
+              parsed.email &&
+              parsed.email !== 'Unknown Email'
           ) {
             parsedList.push({
               ...parsed,
@@ -44,7 +57,15 @@ export function EnrichedDataPanel({ instances }: EnrichedDataPanelProps) {
       }
     }
 
-    return Array.from(unique.values()).slice(0, 50); // Show latest 50
+    // Sort by customerIndex ascending for clean sequential order
+    const result = Array.from(unique.values());
+    result.sort((a, b) => {
+      const idxA = a.customerIndex ?? extractCustomerIndex(a.customerName);
+      const idxB = b.customerIndex ?? extractCustomerIndex(b.customerName);
+      return idxA - idxB;
+    });
+
+    return result; // Show all enriched records (no arbitrary cap)
   }, [instances]);
 
   if (enrichedMessages.length === 0) {
@@ -57,10 +78,16 @@ export function EnrichedDataPanel({ instances }: EnrichedDataPanelProps) {
 
   return (
     <div className="bg-[#111111] border border-white/5 rounded-lg overflow-hidden">
-      <div className="overflow-x-auto">
+      <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between">
+        <span className="text-xs text-slate-400 font-medium">
+          Showing <span className="text-emerald-400 font-semibold">{enrichedMessages.length}</span> enriched orders — sorted by Customer Index
+        </span>
+      </div>
+      <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
         <table className="w-full text-left text-sm text-slate-300">
-          <thead className="text-xs text-slate-500 bg-white/5 uppercase">
+          <thead className="text-xs text-slate-500 bg-white/5 uppercase sticky top-0 z-10">
             <tr>
+              <th className="px-4 py-3 font-medium">#</th>
               <th className="px-4 py-3 font-medium">Order ID</th>
               <th className="px-4 py-3 font-medium">Customer</th>
               <th className="px-4 py-3 font-medium">Address</th>
@@ -70,8 +97,9 @@ export function EnrichedDataPanel({ instances }: EnrichedDataPanelProps) {
             </tr>
           </thead>
           <tbody className="divide-y divide-white/5">
-            {enrichedMessages.map((msg) => (
+            {enrichedMessages.map((msg, index) => (
               <tr key={msg.orderId} className="hover:bg-white/5 transition-colors">
+                <td className="px-4 py-3 text-slate-500 font-mono text-xs">{index + 1}</td>
                 <td className="px-4 py-3 font-mono text-white/90">{msg.orderId}</td>
                 <td className="px-4 py-3 font-medium text-indigo-300">{msg.customerName}</td>
                 <td className="px-4 py-3">
