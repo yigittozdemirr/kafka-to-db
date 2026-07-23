@@ -5,9 +5,9 @@ import com.yigit.entity.CustomerDetail;
 import com.yigit.entity.EnrichedOrder;
 import com.yigit.entity.KafkaMessage;
 import com.yigit.exception.InvalidMessageException;
-import com.yigit.repository.CustomerDetailRepository;
 import com.yigit.repository.EnrichedOrderRepository;
 import com.yigit.repository.KafkaMessageRepository;
+import io.micrometer.core.instrument.MeterRegistry;   // YENİ
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Validator;
 import lombok.RequiredArgsConstructor;
@@ -24,66 +24,63 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 @Slf4j
 public class OrderMessageService {
-
     private final KafkaMessageRepository repository;
     private final EnrichedOrderRepository enrichedOrderRepository;
-    private final CustomerDetailRepository customerDetailRepository;
+    private final CustomerLookupService customerLookupService;
     private final Validator validator;
+    private final MeterRegistry meterRegistry;   // YENİ
 
     @Transactional
     public EnrichedOrder processMessage(OrderMessage message){
-        Set<ConstraintViolation<OrderMessage>> violations = validator.validate(message);
-        if(!violations.isEmpty()) {
-            String error = violations.stream()
-                    .map(ConstraintViolation::getMessage)
-                    .collect(Collectors.joining(", "));
-            throw new InvalidMessageException("Invalid message: " + error);
-        }
+        return meterRegistry.timer("order.processing.time").record(() -> {   // YENİ
 
-        if(enrichedOrderRepository.existsByOrderId(message.orderId())){
-            log.warn("Message already processed. orderId = {}", message.orderId());
-            return null;
-        }
+            Set<ConstraintViolation<OrderMessage>> violations = validator.validate(message);
+            if(!violations.isEmpty()) {
+                String error = violations.stream()
+                        .map(ConstraintViolation::getMessage)
+                        .collect(Collectors.joining(", "));
+                throw new InvalidMessageException("Invalid message: " + error);
+            }
 
-        LocalDateTime now = LocalDateTime.now();
+            if(enrichedOrderRepository.existsByOrderId(message.orderId())){
+                log.warn("Message already processed. orderId = {}", message.orderId());
+                return null;
+            }
 
-        // Save original message
-        KafkaMessage entity = KafkaMessage.builder()
-                .orderId(message.orderId())
-                .customerName(message.customerName())
-                .amount(message.amount())
-                .receivedAt(now)
-                .build();
-        repository.save(entity);
+            LocalDateTime now = LocalDateTime.now();
 
-        // Fetch customer details
-        Optional<CustomerDetail> customerOpt = customerDetailRepository.findByCustomerName(message.customerName());
-        if (customerOpt.isEmpty()) {
-            log.warn("Customer detail not found, using placeholder. customerName={}", message.customerName());
-        }
-        String address = customerOpt.map(CustomerDetail::getAddress).orElse("Unknown Address");
-        String email = customerOpt.map(CustomerDetail::getEmail).orElse("Unknown Email");
+            KafkaMessage entity = KafkaMessage.builder()
+                    .orderId(message.orderId())
+                    .customerName(message.customerName())
+                    .amount(message.amount())
+                    .receivedAt(now)
+                    .build();
+            repository.save(entity);
 
-        // Save enriched order
-        EnrichedOrder enrichedOrder = EnrichedOrder.builder()
-                .orderId(message.orderId())
-                .customerName(message.customerName())
-                .amount(message.amount())
-                .customerIndex(extractCustomerIndex(message.customerName()))
-                .address(address)
-                .email(email)
-                .receivedAt(now)
-                .build();
+            Optional<CustomerDetail> customerOpt = customerLookupService.findByCustomerName(message.customerName());
+            if (customerOpt.isEmpty()) {
+                log.warn("Customer detail not found, using placeholder. customerName={}", message.customerName());
+            }
+            String address = customerOpt.map(CustomerDetail::getAddress).orElse("Unknown Address");
+            String email = customerOpt.map(CustomerDetail::getEmail).orElse("Unknown Email");
 
-        enrichedOrderRepository.save(enrichedOrder);
-        log.info("Saved enriched data to DataBase! orderId = {}", enrichedOrder.getOrderId());
-        return enrichedOrder;
+            EnrichedOrder enrichedOrder = EnrichedOrder.builder()
+                    .orderId(message.orderId())
+                    .customerName(message.customerName())
+                    .amount(message.amount())
+                    .customerIndex(extractCustomerIndex(message.customerName()))
+                    .address(address)
+                    .email(email)
+                    .receivedAt(now)
+                    .build();
+
+            enrichedOrderRepository.save(enrichedOrder);
+            log.info("Saved enriched data to DataBase! orderId = {}", enrichedOrder.getOrderId());
+            return enrichedOrder;
+
+        });   // YENİ
     }
 
-    /**
-     * Extracts the numeric suffix from customerName.
-     * E.g. "Customer-42" → 42, "Ahmet" → Integer.MAX_VALUE (sorted last).
-     */
     private int extractCustomerIndex(String customerName) {
         if (customerName == null) return Integer.MAX_VALUE;
         int dashIndex = customerName.lastIndexOf('-');

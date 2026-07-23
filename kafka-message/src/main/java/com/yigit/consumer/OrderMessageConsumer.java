@@ -7,6 +7,7 @@ import com.yigit.exception.InvalidMessageException;
 import com.yigit.repository.FailedMessageRepository;
 import com.yigit.service.MonitoringEventPublisher;
 import com.yigit.service.OrderMessageService;
+import io.micrometer.core.instrument.MeterRegistry;   // YENİ
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.kafka.annotation.DltHandler;
@@ -24,6 +25,7 @@ public class OrderMessageConsumer {
     private final OrderMessageService service;
     private final FailedMessageRepository failedMessageRepository;
     private final MonitoringEventPublisher monitoringPublisher;
+    private final MeterRegistry meterRegistry;   // YENİ
 
     @RetryableTopic(
             attempts = "4",
@@ -35,6 +37,7 @@ public class OrderMessageConsumer {
         log.info("Message received: {}", message);
         try {
             EnrichedOrder enrichedOrder = service.processMessage(message);
+            meterRegistry.counter("kafka_messages_processed_total", "status", "success").increment();   // YENİ
             if (enrichedOrder != null) {
                 monitoringPublisher.publishEvent(
                         message.orderId(),
@@ -42,19 +45,29 @@ public class OrderMessageConsumer {
                         "SUCCESS"
                 );
             }
+        } catch (InvalidMessageException ex) {   // YENİ — ayrı catch bloğu
+            meterRegistry.counter("kafka_messages_processed_total", "status", "invalid").increment();   // YENİ
+            monitoringPublisher.publishEvent(
+                    message.orderId(),
+                    formatPayload(message),
+                    "FAILED"
+            );
+            throw ex;
         } catch (Exception ex) {
+            meterRegistry.counter("kafka_messages_processed_total", "status", "retry").increment();   // YENİ
             monitoringPublisher.publishEvent(
                     message.orderId(),
                     formatPayload(message),
                     "RETRY"
             );
-            throw ex; // re-throw so @RetryableTopic handles it
+            throw ex;
         }
     }
 
     @DltHandler
     public void handleDlt(OrderMessage message) {
         log.error("Message processing failed after all retries; sent to DLT: {}", message);
+        meterRegistry.counter("kafka_messages_processed_total", "status", "dlt").increment();   // YENİ
 
         FailedMessage failed = FailedMessage.builder()
                 .orderId(message.orderId())
